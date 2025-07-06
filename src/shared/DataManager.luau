@@ -6,20 +6,25 @@
 local Players = game:GetService("Players")
 local GameConfig = require(script.Parent.GameConfig)
 local Types = require(script.Parent.Types)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local GetPlayerData = ReplicatedStorage:WaitForChild("GetPlayerData")
+local UpdatePlayerData = ReplicatedStorage:WaitForChild("UpdatePlayerData")
 
 local DataManager = {}
 
--- Mock DataStore (in a real game, you'd use DataStoreService)
+-- Mock data store for testing (replace with real DataStore in production)
 local mockDataStore = {}
+
+local cachedData = nil
 
 -- Current player data
 local playerData: Types.PlayerData = {
 	robux = GameConfig.INITIAL_ROBUX,
 	upgrades = {
-		fasterTyping = 0,
-		interns = 0,
-		laptopUpgrade = 0,
-		studioHQ = 0,
+		mechanicalKeyboard = 0,
+		dualMonitor = 0,
+		fastWifi = 0,
+		energyDrinks = 0,
 	},
 	lastSave = os.time(),
 }
@@ -36,36 +41,56 @@ local gameStats: Types.GameStats = {
     Data Management Functions
 ]]
 
-function DataManager.getPlayerData(): Types.PlayerData
-	return playerData
+function DataManager.getPlayerData()
+	if not cachedData then
+		cachedData = GetPlayerData:InvokeServer()
+	end
+	return cachedData
 end
 
 function DataManager.getGameStats(): Types.GameStats
 	return gameStats
 end
 
+function DataManager.save()
+	if cachedData then
+		UpdatePlayerData:FireServer(cachedData)
+	end
+end
+
 function DataManager.addRobux(amount: number)
-	playerData.robux += amount
-	gameStats.totalEarned += amount
-	DataManager.updateGameStats()
+	local data = DataManager.getPlayerData()
+	data.robux += amount
+	DataManager.save()
 end
 
 function DataManager.spendRobux(amount: number): boolean
-	if playerData.robux >= amount then
-		playerData.robux -= amount
+	local data = DataManager.getPlayerData()
+	if data.robux >= amount then
+		data.robux -= amount
+		DataManager.save()
 		return true
 	end
 	return false
 end
 
 function DataManager.getUpgradeLevel(upgradeType: Types.UpgradeType): number
-	return playerData.upgrades[upgradeType] or 0
+	local data = DataManager.getPlayerData()
+	return data.upgrades[upgradeType] or 0
 end
 
 function DataManager.getUpgradeCost(upgradeType: Types.UpgradeType): number
 	local currentLevel = DataManager.getUpgradeLevel(upgradeType)
-	local upgradeData = GameConfig.UPGRADES[upgradeType]
 
+	-- Phase 1 upgrade costs
+	local upgradeCosts = {
+		mechanicalKeyboard = { baseCost = 20, costMultiplier = 1.5 },
+		dualMonitor = { baseCost = 100, costMultiplier = 2.0 },
+		fastWifi = { baseCost = 80, costMultiplier = 1.7 },
+		energyDrinks = { baseCost = 60, costMultiplier = 1.6 },
+	}
+
+	local upgradeData = upgradeCosts[upgradeType]
 	if not upgradeData then
 		return math.huge
 	end
@@ -75,23 +100,29 @@ end
 
 function DataManager.canAffordUpgrade(upgradeType: Types.UpgradeType): boolean
 	local cost = DataManager.getUpgradeCost(upgradeType)
-	return playerData.robux >= cost
+	local data = DataManager.getPlayerData()
+	return data.robux >= cost
 end
 
 function DataManager.purchaseUpgrade(upgradeType: Types.UpgradeType): boolean
 	local cost = DataManager.getUpgradeCost(upgradeType)
-	local upgradeData = GameConfig.UPGRADES[upgradeType]
 
-	if not upgradeData then
-		return false
-	end
+	-- Phase 1 upgrade max levels
+	local maxLevels = {
+		mechanicalKeyboard = 20,
+		dualMonitor = 10,
+		fastWifi = 10,
+		energyDrinks = 10,
+	}
 
-	if DataManager.getUpgradeLevel(upgradeType) >= upgradeData.maxLevel then
+	local maxLevel = maxLevels[upgradeType] or 0
+	if DataManager.getUpgradeLevel(upgradeType) >= maxLevel then
 		return false
 	end
 
 	if DataManager.spendRobux(cost) then
-		playerData.upgrades[upgradeType] += 1
+		local data = DataManager.getPlayerData()
+		data.upgrades[upgradeType] += 1
 		DataManager.updateGameStats()
 		return true
 	end
@@ -100,40 +131,46 @@ function DataManager.purchaseUpgrade(upgradeType: Types.UpgradeType): boolean
 end
 
 function DataManager.updateGameStats()
-	-- Calculate click value
+	-- Calculate click value based on Phase 1 upgrades
 	local clickValue = GameConfig.BASE_CLICK_VALUE
-	clickValue += DataManager.getUpgradeLevel("fasterTyping")
 
-	-- Apply laptop upgrade multiplier
-	local laptopLevel = DataManager.getUpgradeLevel("laptopUpgrade")
-	clickValue *= (2 ^ laptopLevel)
+	-- Mechanical Keyboard: +1 per level
+	local keyboardLevel = DataManager.getUpgradeLevel("mechanicalKeyboard")
+	clickValue += keyboardLevel
 
-	-- Calculate passive income
-	local studioHQLevel = DataManager.getUpgradeLevel("studioHQ")
-	gameStats.passiveIncome = studioHQLevel * 10 -- 10 Robux per level every 5 seconds
+	-- Dual Monitor: NO LONGER APPLIES HERE
+	-- local monitorLevel = DataManager.getUpgradeLevel("dualMonitor")
+	-- clickValue *= (1.2 ^ monitorLevel)
 
-	-- Calculate auto-click rate
-	local internLevel = DataManager.getUpgradeLevel("interns")
-	gameStats.clicksPerSecond = internLevel * clickValue
+	-- Calculate passive income (not used in Phase 1, but keeping for future)
+	gameStats.passiveIncome = 0
+
+	-- Calculate auto-click rate (not used in Phase 1, but keeping for future)
+	gameStats.clicksPerSecond = 0
 end
 
 function DataManager.getClickValue(): number
 	local clickValue = GameConfig.BASE_CLICK_VALUE
-	clickValue += DataManager.getUpgradeLevel("fasterTyping")
 
-	local laptopLevel = DataManager.getUpgradeLevel("laptopUpgrade")
-	clickValue *= (2 ^ laptopLevel)
+	-- Mechanical Keyboard: +1 per level
+	local keyboardLevel = DataManager.getUpgradeLevel("mechanicalKeyboard")
+	clickValue += keyboardLevel
+
+	-- Dual Monitor: NO LONGER APPLIES HERE
+	-- local monitorLevel = DataManager.getUpgradeLevel("dualMonitor")
+	-- clickValue *= (1.2 ^ monitorLevel)
 
 	return clickValue
 end
 
 function DataManager.getPassiveIncome(): number
-	local studioHQLevel = DataManager.getUpgradeLevel("studioHQ")
-	return studioHQLevel * 10
+	-- Not used in Phase 1
+	return 0
 end
 
 function DataManager.getAutoClickRate(): number
-	return DataManager.getUpgradeLevel("interns")
+	-- Not used in Phase 1
+	return 0
 end
 
 --[[

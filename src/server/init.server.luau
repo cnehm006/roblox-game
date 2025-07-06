@@ -8,6 +8,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 print("Tycoon Tycoon server started!")
 
+-- Load the PlayerDataStore module to set up data persistence and RemoteFunctions
+require(script.PlayerDataStore)
+
 -- Handle player joining
 Players.PlayerAdded:Connect(function(player)
 	print("Player joined: " .. player.Name)

@@ -3,7 +3,7 @@
     Defines all data structures and types used in Tycoon Tycoon
 ]]
 
-export type UpgradeType = "fasterTyping" | "interns" | "laptopUpgrade" | "studioHQ"
+export type UpgradeType = "mechanicalKeyboard" | "dualMonitor" | "fastWifi" | "energyDrinks"
 
 export type UpgradeData = {
 	name: string,

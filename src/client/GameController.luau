@@ -21,29 +21,47 @@ local GameController = {}
 
 function GameController.init()
 	print("Initializing Tycoon Tycoon...")
-
+	print("=== DEBUG: GameController.init() function entered ===")
+	print("=== DEBUG: About to enter pcall block ===")
 	local success, err = pcall(function()
+		print("DEBUG: pcall block entered")
+		print("DEBUG: Step 1 - Loading player data")
 		-- Load player data
 		DataManager.loadData()
 
+		print("DEBUG: Step 2 - Creating main GUI")
 		-- Create main GUI
 		local mainGui = MainGui.create()
 
+		print("DEBUG: Step 3 - Creating upgrades panel")
 		-- Create upgrades panel
 		local upgradesPanel = UpgradesPanel.create(mainGui)
 
+		print("DEBUG: Step 4 - About to call setupConnections")
 		-- Set up connections
-		GameController.setupConnections()
+		local success, err = pcall(function()
+			GameController.setupConnections()
+		end)
+		if not success then
+			warn("Failed to setup connections:", err)
+		else
+			print("DEBUG: setupConnections completed successfully")
+		end
 
+		print("DEBUG: Step 5 - Starting game loop")
 		-- Start game loop
 		GameLoop.start()
 
+		print("DEBUG: Step 6 - Setting up update callbacks")
 		-- Set up update callbacks
 		GameController.setupUpdateCallbacks()
+
+		print("DEBUG: All initialization steps completed")
 	end)
 
 	if not success then
 		warn("Failed to initialize Tycoon Tycoon:", err)
+		print("DEBUG: Full error details:", err)
 		return false
 	end
 
@@ -52,8 +70,10 @@ function GameController.init()
 end
 
 function GameController.setupConnections()
+	print("DEBUG: GameController.setupConnections() called")
 	-- Connect main GUI to upgrades panel
 	MainGui.setUpgradesCallback(function()
+		print("DEBUG: Upgrades callback triggered in GameController")
 		UpgradesPanel.toggle()
 	end)
 

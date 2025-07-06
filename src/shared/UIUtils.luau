@@ -64,7 +64,14 @@ function UIUtils.createTextLabel(parent: GuiObject, name: string, text: string, 
 	return label
 end
 
-function UIUtils.createButton(parent: GuiObject, name: string, text: string, size: UDim2, position: UDim2): TextButton
+function UIUtils.createButton(
+	parent: GuiObject,
+	name: string,
+	text: string,
+	size: UDim2,
+	position: UDim2,
+	soundId: string?
+): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
 	button.Size = size
@@ -79,25 +86,29 @@ function UIUtils.createButton(parent: GuiObject, name: string, text: string, siz
 	button.Parent = parent
 	button.ZIndex = 2
 
+	local originalSize = size
+
 	-- Add rounded corners
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, GameConfig.UI.SIZES.CORNER_RADIUS)
 	corner.Parent = button
 
-	-- Add gradient
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, GameConfig.UI.COLORS.GRADIENT1),
-		ColorSequenceKeypoint.new(1, GameConfig.UI.COLORS.GRADIENT2),
-	})
-	gradient.Rotation = 45
-	gradient.Parent = button
+	-- Add gradient (skip for CostButton)
+	if name ~= "CostButton" then
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, GameConfig.UI.COLORS.GRADIENT1),
+			ColorSequenceKeypoint.new(1, GameConfig.UI.COLORS.GRADIENT2),
+		})
+		gradient.Rotation = 45
+		gradient.Parent = button
+	end
 
 	-- Add stroke
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = GameConfig.UI.COLORS.ACCENT
 	stroke.Thickness = GameConfig.UI.SIZES.STROKE_THICKNESS
-	stroke.Transparency = 0.5
+	stroke.Transparency = 0.0
 	stroke.Parent = button
 
 	-- Add drop shadow
@@ -112,18 +123,37 @@ function UIUtils.createButton(parent: GuiObject, name: string, text: string, siz
 	shadow.ZIndex = button.ZIndex - 1
 	shadow.Parent = button
 
-	-- Button hover/press effects
+	-- Button hover/press effects (fix: always scale from originalSize)
+	local currentTween = nil
+	local function tweenTo(scale, duration)
+		if currentTween then
+			currentTween:Cancel()
+		end
+		local newSize = UDim2.new(
+			originalSize.X.Scale * scale,
+			originalSize.X.Offset * scale,
+			originalSize.Y.Scale * scale,
+			originalSize.Y.Offset * scale
+		)
+		currentTween = TweenService:Create(
+			button,
+			TweenInfo.new(duration, GameConfig.UI.ANIMATIONS.TWEEN_STYLE, GameConfig.UI.ANIMATIONS.TWEEN_DIRECTION),
+			{ Size = newSize }
+		)
+		currentTween:Play()
+		return currentTween
+	end
 	button.MouseEnter:Connect(function()
-		UIUtils.tweenScale(button, GameConfig.UI.ANIMATIONS.BUTTON_HOVER_SCALE, 0.15)
+		tweenTo(GameConfig.UI.ANIMATIONS.BUTTON_HOVER_SCALE, 0.15)
 	end)
 	button.MouseLeave:Connect(function()
-		UIUtils.tweenScale(button, 1, 0.15)
+		tweenTo(1, 0.15)
 	end)
 	button.MouseButton1Down:Connect(function()
-		UIUtils.tweenScale(button, 0.97, 0.08)
+		tweenTo(0.97, 0.08)
 	end)
 	button.MouseButton1Up:Connect(function()
-		UIUtils.tweenScale(button, GameConfig.UI.ANIMATIONS.BUTTON_HOVER_SCALE, 0.12)
+		tweenTo(GameConfig.UI.ANIMATIONS.BUTTON_HOVER_SCALE, 0.12)
 	end)
 
 	return button
@@ -139,6 +169,7 @@ function UIUtils.createUpgradeButton(
 	local container = UIUtils.createFrame(parent, name, size, position)
 	container.BackgroundColor3 = GameConfig.UI.COLORS.CARD_BACKGROUND
 	container.BackgroundTransparency = 0.12
+	container.ZIndex = 101
 
 	-- Upgrade name
 	local nameLabel = UIUtils.createTextLabel(
@@ -150,6 +181,7 @@ function UIUtils.createUpgradeButton(
 	)
 	nameLabel.TextColor3 = GameConfig.UI.COLORS.TEXT_PRIMARY
 	nameLabel.Font = GameConfig.UI.FONT
+	nameLabel.ZIndex = 102
 
 	-- Upgrade description
 	local descLabel = UIUtils.createTextLabel(
@@ -161,10 +193,12 @@ function UIUtils.createUpgradeButton(
 	)
 	descLabel.TextColor3 = GameConfig.UI.COLORS.TEXT_SECONDARY
 	descLabel.Font = GameConfig.UI.FONT
+	descLabel.ZIndex = 102
 
 	-- Cost button
 	local costButton =
 		UIUtils.createButton(container, "CostButton", "Cost: 0", UDim2.new(1, -20, 0.3, 0), UDim2.new(0, 10, 0.6, 0))
+	costButton.ZIndex = 102
 
 	-- Level label
 	local levelLabel = UIUtils.createTextLabel(
@@ -176,6 +210,7 @@ function UIUtils.createUpgradeButton(
 	)
 	levelLabel.TextColor3 = GameConfig.UI.COLORS.SUCCESS
 	levelLabel.Font = GameConfig.UI.FONT
+	levelLabel.ZIndex = 102
 
 	return container
 end

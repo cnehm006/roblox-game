@@ -7,6 +7,7 @@
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 local player = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
 -- Hide character
 if player.Character then
@@ -16,8 +17,10 @@ player.CharacterAdded:Connect(function(char)
 	char:Destroy()
 end)
 
--- Freeze camera
-workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+-- Freeze camera every frame
+RunService.RenderStepped:Connect(function()
+	workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+end)
 
 -- Disable reset button
 pcall(function()
@@ -30,8 +33,12 @@ pcall(function()
 end)
 
 -- Start the game
-local gameControllerModule = script.Parent:FindFirstChild("GameController")
+local clientFolder = script.Parent:FindFirstChild("Client")
+assert(clientFolder, "Client folder not found!")
+local gameControllerModule = clientFolder:FindFirstChild("GameController")
 assert(gameControllerModule, "GameController module not found!")
 local GameController = require(gameControllerModule)
+print("DEBUG: About to call GameController.init()")
 GameController.init()
+print("DEBUG: GameController.init() completed")
 GameController.startGame()
